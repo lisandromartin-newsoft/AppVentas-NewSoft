@@ -1,0 +1,219 @@
+// Newsoft Sales — Schema de Prisma
+// Versión 1.0 — Abril 2026
+// Sigue estrictamente el Documento Funcional-Técnico v1.0, sección 3
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // pgbouncer=true en DATABASE_URL → para queries en runtime (pooled)
+  url       = env("DATABASE_URL")
+  // DIRECT_URL → conexión directa para migraciones (sin pgbouncer)
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// 3.1 EMPRESA (configuración global)
+// Registro único — no se crean múltiples empresas
+// ============================================================
+model Empresa {
+  id                       String   @id @default(uuid())
+  nombre                   String   @db.VarChar(200)
+  rfc                      String   @db.VarChar(13)
+  direccion                String   @db.VarChar(500)
+  email                    String   @db.VarChar(100)
+  telefono                 String   @db.VarChar(20)
+  // Folio: prefijo + consecutivo zero-padded 5 dígitos (ej: NS + 02001 = NS02001)
+  prefijo_folio            String   @db.VarChar(10)
+  siguiente_folio          Int      @default(1)
+  vigencia_cotizacion_dias Int      @default(30)
+  aplicar_iva              Boolean  @default(true)
+  tasa_iva                 Decimal  @default(16.00) @db.Decimal(5, 2)
+  // Soporta variable {vigencia} que se resuelve al generar PDF
+  notas_documentos         String?  @db.Text
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
+
+  @@map("empresa")
+}
+
+// ============================================================
+// 3.3 TIPO DE COTIZACIÓN
+// Catálogo administrable: Proyecto Fijo, SEC Plan, Soporte, TrackPoint, etc.
+// Soft delete: activo = false (nunca borrar, órdenes mantienen referencia)
+// ============================================================
+model TipoCotizacion {
+  id          String       @id @default(uuid())
+  nombre      String       @db.VarChar(100)
+  descripcion String?      @db.VarChar(300)
+  activo      Boolean      @default(true)
+  created_at  DateTime     @default(now())
+
+  // Relaciones
+  ordenes     OrdenVenta[]
+
+  @@map("tipo_cotizacion")
+}
+
+// ============================================================
+// 3.4 CONDICIÓN COMERCIAL
+// Catálogo administrable: Contado, 30 días, 50/50, etc.
+// Soft delete: activo = false
+// ============================================================
+model CondicionComercial {
+  id           String       @id @default(uuid())
+  nombre       String       @db.VarChar(150)
+  // null = contado; número = días de crédito
+  dias_credito Int?
+  descripcion  String?      @db.Text
+  activo       Boolean      @default(true)
+  created_at   DateTime     @default(now())
+
+  // Relaciones
+  clientes     Cliente[]
+  ordenes      OrdenVenta[]
+
+  @@map("condicion_comercial")
+}
+
+// ============================================================
+// 3.2 CLIENTE
+// Soft delete: activo = false
+// RFC único en el sistema
+// ============================================================
+model Cliente {
+  id                 String             @id @default(uuid())
+  nombre             String             @db.VarChar(200)
+  rfc                String             @unique @db.VarChar(13)
+  contacto           String             @db.VarChar(150)
+  ciudad             String             @db.VarChar(100)
+  email              String             @db.VarChar(100)
+  telefono           String?            @db.VarChar(20)
+  // Condición de pago por defecto del cliente
+  condicion_pago_id  String
+  condicion_pago     CondicionComercial @relation(fields: [condicion_pago_id], references: [id])
+  notas              String?            @db.Text
+  // Soft delete
+  activo             Boolean            @default(true)
+  created_at         DateTime           @default(now())
+  updated_at         DateTime           @updatedAt
+
+  // Relaciones
+  ordenes            OrdenVenta[]
+
+  @@map("cliente")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+// Ciclo de vida de una orden de venta
+enum EstatusOrden {
+  BORRADOR  // En elaboración, no enviado al cliente
+  COTIZADO  // Enviado al cliente como cotización formal
+  VENTA     // Ganado/cerrado como venta
+
+  @@map("estatus_orden")
+}
+
+// Moneda de la orden
+enum Moneda {
+  MXN
+  USD
+
+  @@map("moneda")
+}
+
+// ============================================================
+// 3.5 ORDEN DE VENTA
+// Entidad central. Cotización o venta cerrada.
+// Los campos "Calc." se recalculan en backend al guardar/actualizar.
+// ============================================================
+model OrdenVenta {
+  id                     String             @id @default(uuid())
+  // Folio autogenerado: prefijo + consecutivo zero-padded 5 dígitos
+  folio                  String             @unique @db.VarChar(20)
+
+  // Relaciones principales
+  cliente_id             String
+  cliente                Cliente            @relation(fields: [cliente_id], references: [id])
+  tipo_cotizacion_id     String
+  tipo_cotizacion        TipoCotizacion     @relation(fields: [tipo_cotizacion_id], references: [id])
+  // Condición de esta orden específica (puede diferir del default del cliente)
+  condicion_pago_id      String
+  condicion_pago         CondicionComercial @relation(fields: [condicion_pago_id], references: [id])
+
+  descripcion            String             @db.VarChar(500)
+  estatus                EstatusOrden       @default(BORRADOR)
+  moneda                 Moneda             @default(MXN)
+  // Obligatorio si moneda = USD
+  tipo_cambio            Decimal?           @db.Decimal(10, 4)
+
+  // Fechas
+  // Editable retroactivamente en cualquier estatus (requisito explícito)
+  fecha_venta            DateTime?          @db.Date
+  // Calculada al crear: created_at + vigencia_cotizacion_dias de Empresa
+  vigencia               DateTime?          @db.Date
+
+  // IVA — hereda de Empresa pero es editable por orden
+  aplica_iva             Boolean
+  tasa_iva               Decimal?           @db.Decimal(5, 2)
+
+  // Descuento global opcional
+  descuento_porcentaje   Decimal?           @db.Decimal(5, 2)
+  descuento_descripcion  String?            @db.VarChar(200)
+
+  // ── Campos calculados (calculados en backend, NO en frontend) ──
+  // Suma de (cantidad * precio_unitario) de todas las partidas
+  subtotal               Decimal            @default(0) @db.Decimal(12, 2)
+  // subtotal * (descuento_porcentaje / 100)
+  monto_descuento        Decimal            @default(0) @db.Decimal(12, 2)
+  // subtotal - monto_descuento
+  subtotal_con_descuento Decimal            @default(0) @db.Decimal(12, 2)
+  // subtotal_con_descuento * (tasa_iva / 100) — si aplica_iva = true
+  monto_iva              Decimal            @default(0) @db.Decimal(12, 2)
+  // subtotal_con_descuento + monto_iva — en moneda original
+  total                  Decimal            @default(0) @db.Decimal(12, 2)
+  // Si MXN: igual a total. Si USD: total * tipo_cambio
+  total_mxn              Decimal            @default(0) @db.Decimal(12, 2)
+
+  notas                  String?            @db.Text
+
+  // Referencia a orden original si fue duplicada
+  duplicada_de_id        String?
+  duplicada_de           OrdenVenta?        @relation("Duplicaciones", fields: [duplicada_de_id], references: [id])
+  duplicaciones          OrdenVenta[]       @relation("Duplicaciones")
+
+  created_at             DateTime           @default(now())
+  updated_at             DateTime           @updatedAt
+
+  // Relaciones
+  partidas               Partida[]
+
+  @@map("orden_venta")
+}
+
+// ============================================================
+// 3.6 PARTIDA (línea de orden)
+// Servicios o productos cotizados. Mínimo 1 por orden.
+// Se eliminan físicamente solo en cascade con la orden (si orden BORRADOR)
+// ============================================================
+model Partida {
+  id              String     @id @default(uuid())
+  orden_id        String
+  // onDelete: Cascade — si se elimina la orden, se eliminan sus partidas
+  orden           OrdenVenta @relation(fields: [orden_id], references: [id], onDelete: Cascade)
+  descripcion     String     @db.VarChar(500)
+  cantidad        Decimal    @db.Decimal(10, 2)
+  precio_unitario Decimal    @db.Decimal(12, 2)
+  // Calculado: cantidad * precio_unitario
+  total_partida   Decimal    @db.Decimal(12, 2)
+  // Posición de display en la orden (para ordenamiento)
+  orden_display   Int
+  created_at      DateTime   @default(now())
+
+  @@map("partida")
+}

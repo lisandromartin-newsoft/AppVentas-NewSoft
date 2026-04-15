@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Variables CSS globales ────────────────────────────── */
+:root {
+  --color-navy: #1b2a4a;
+  --color-orange: #e8751a;
+  --color-surface: #f5f7fa;
+  --color-border: #d0d5dd;
+  --color-text: #1a1a2e;
+  --color-text-muted: #6b7280;
+  --sidebar-width: 240px;
+}
+
+/* ── Reset / Base ──────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar personalizado ───────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d0d5dd;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9aa5b4;
+}
+
+/* ── Componentes reutilizables ─────────────────────────── */
+@layer components {
+
+  /* Botón primario (Navy) */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           bg-navy text-white text-sm font-medium
+           hover:bg-navy-800 active:bg-navy-900
+           transition-colors duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Botón acento (Orange) */
+  .btn-accent {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           bg-orange text-white text-sm font-medium
+           hover:bg-orange-600 active:bg-orange-700
+           transition-colors duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Botón secundario (outline) */
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           bg-white text-gray-700 text-sm font-medium
+           border border-surface-border
+           hover:bg-gray-50 active:bg-gray-100
+           transition-colors duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Botón destructivo */
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           bg-red-600 text-white text-sm font-medium
+           hover:bg-red-700 active:bg-red-800
+           transition-colors duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Campo de input */
+  .input {
+    @apply block w-full rounded-lg border border-surface-border bg-white
+           px-3 py-2 text-sm text-gray-900
+           placeholder-gray-400
+           focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent
+           disabled:bg-gray-50 disabled:text-gray-500
+           transition-shadow duration-150;
+  }
+
+  /* Label de formulario */
+  .label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  /* Tarjeta / Card */
+  .card {
+    @apply bg-white rounded-xl border border-surface-border shadow-sm p-6;
+  }
+
+  /* Badge de estatus */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  /* KPI Card */
+  .kpi-card {
+    @apply bg-white rounded-xl border border-surface-border shadow-sm p-5;
+  }
+
+  /* Fila de tabla (alternada) */
+  .table-row-alt {
+    @apply even:bg-gray-50;
+  }
+
+  /* Separador de grupo en tabla */
+  .table-group-header {
+    @apply bg-navy-50 border-b border-surface-border;
+  }
+}
+
+/* ── Animaciones ────────────────────────────────────────── */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-in-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
