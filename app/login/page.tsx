@@ -6,8 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Suspense } from "react";
 
-export const metadata = { title: "Iniciar sesión" };
-
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
