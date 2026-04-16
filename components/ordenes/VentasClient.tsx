@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useTransition } from "react";
 import { Plus, AlertTriangle } from "lucide-react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import KpiCard from "./KpiCard";
 import FiltrosBar from "./FiltrosBar";
 import TablaOrdenes from "./TablaOrdenes";
@@ -12,8 +13,11 @@ import type { OrdenResumen, KpisData, FiltroOrdenes, EstatusOrden } from "@/type
 interface VentasClientProps {
   initialOrdenes: OrdenResumen[];
   initialKpis: KpisData;
+  initialFiltros: FiltroOrdenes;
 }
 
+// ── Cálculo de KPIs client-side ───────────────────────────────
+// Fórmula correcta: tasa_conversion = ventas / total_ordenes * 100
 function calcularKpis(ordenes: OrdenResumen[]): KpisData {
   const total_ordenes = ordenes.length;
   const borradores = ordenes.filter((o) => o.estatus === "BORRADOR").length;
@@ -28,10 +32,9 @@ function calcularKpis(ordenes: OrdenResumen[]): KpisData {
     .filter((o) => o.estatus === "COTIZADO")
     .reduce((s, o) => s + o.total_mxn, 0);
 
+  // Doc: (órdenes con estatus VENTA / total órdenes) * 100
   const tasa_conversion =
-    cotizadas + ventas > 0
-      ? Math.round((ventas / (cotizadas + ventas)) * 100)
-      : 0;
+    total_ordenes > 0 ? Math.round((ventas / total_ordenes) * 100) : 0;
 
   const suma_total_mxn = ordenes
     .filter((o) => o.moneda === "MXN")
@@ -54,6 +57,7 @@ function calcularKpis(ordenes: OrdenResumen[]): KpisData {
   };
 }
 
+// ── Filtrado client-side (AND combinable) ─────────────────────
 function filtrarOrdenes(ordenes: OrdenResumen[], filtros: FiltroOrdenes): OrdenResumen[] {
   return ordenes.filter((o) => {
     if (filtros.estatus && o.estatus !== filtros.estatus) return false;
@@ -78,38 +82,65 @@ function filtrarOrdenes(ordenes: OrdenResumen[], filtros: FiltroOrdenes): OrdenR
   });
 }
 
+// ── Construir query string a partir de filtros ────────────────
+function filtrosToQueryString(filtros: FiltroOrdenes): string {
+  const params = new URLSearchParams();
+  if (filtros.ano) params.set("ano", String(filtros.ano));
+  if (filtros.q) params.set("q", String(filtros.q));
+  if (filtros.mes) params.set("mes", String(filtros.mes));
+  if (filtros.estatus) params.set("estatus", filtros.estatus);
+  return params.toString();
+}
+
 export default function VentasClient({
   initialOrdenes,
   initialKpis,
+  initialFiltros,
 }: VentasClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [, startTransition] = useTransition();
+
   const [ordenes, setOrdenes] = useState<OrdenResumen[]>(initialOrdenes);
-  const [filtros, setFiltros] = useState<FiltroOrdenes>({
-    ano: null,
-    q: null,
-    mes: null,
-    estatus: null,
-  });
+  const [filtros, setFiltros] = useState<FiltroOrdenes>(initialFiltros);
   const [confirmDelete, setConfirmDelete] = useState<OrdenResumen | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
 
   const closeToast = useCallback(() => setToast(null), []);
 
-  // Filtrado client-side
+  // ── Sincronizar filtros con URL ───────────────────────────────
+  // Cuando los filtros cambian, actualizar la URL sin reload
+  useEffect(() => {
+    const qs = filtrosToQueryString(filtros);
+    const newUrl = qs ? `${pathname}?${qs}` : pathname;
+    startTransition(() => {
+      router.replace(newUrl, { scroll: false });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtros]);
+
+  // ── Filtrado client-side ──────────────────────────────────────
   const ordenesFiltradas = useMemo(
     () => filtrarOrdenes(ordenes, filtros),
     [ordenes, filtros]
   );
 
-  // KPIs calculados sobre órdenes filtradas
+  // ── KPIs calculados sobre órdenes filtradas ───────────────────
   const kpis = useMemo(
-    () => (filtros.ano || filtros.q || filtros.mes || filtros.estatus
-      ? calcularKpis(ordenesFiltradas)
-      : initialKpis),
+    () =>
+      filtros.ano || filtros.q || filtros.mes || filtros.estatus
+        ? calcularKpis(ordenesFiltradas)
+        : initialKpis,
     [ordenesFiltradas, filtros, initialKpis]
   );
 
-  // Cambio de estatus en tabla
+  // ── Handlers ─────────────────────────────────────────────────
+
+  const handleFiltrosChange = useCallback((nuevos: FiltroOrdenes) => {
+    setFiltros(nuevos);
+  }, []);
+
   const handleEstatusChanged = useCallback(
     (id: string, nuevoEstatus: EstatusOrden, fechaVenta?: string) => {
       setOrdenes((prev) =>
@@ -119,9 +150,7 @@ export default function VentasClient({
                 ...o,
                 estatus: nuevoEstatus,
                 fecha_venta:
-                  nuevoEstatus === "VENTA"
-                    ? (fechaVenta ?? o.fecha_venta)
-                    : null,
+                  nuevoEstatus === "VENTA" ? (fechaVenta ?? o.fecha_venta) : null,
               }
             : o
         )
@@ -129,6 +158,15 @@ export default function VentasClient({
     },
     []
   );
+
+  // Orden duplicada desde la tabla — agregar al inicio y mostrar toast
+  const handleDuplicated = useCallback((nuevaOrden: OrdenResumen) => {
+    setOrdenes((prev) => [nuevaOrden, ...prev]);
+    setToast({
+      type: "success",
+      message: `Orden duplicada: ${nuevaOrden.folio} (Borrador)`,
+    });
+  }, []);
 
   // Eliminar orden BORRADOR
   const handleDeleteConfirm = async () => {
@@ -159,6 +197,18 @@ export default function VentasClient({
     }
   };
 
+  // ── Label de desglose para Total Órdenes ─────────────────────
+  const desgloseTotalOrdenes = [
+    kpis.borradores > 0
+      ? `${kpis.borradores} ${kpis.borradores === 1 ? "borrador" : "borradores"}`
+      : null,
+    kpis.cotizadas > 0
+      ? `${kpis.cotizadas} ${kpis.cotizadas === 1 ? "cotizada" : "cotizadas"}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <>
       {toast && <Toast {...toast} onClose={closeToast} />}
@@ -168,8 +218,11 @@ export default function VentasClient({
         <div>
           <h1 className="text-2xl font-bold text-navy">Ventas</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {ordenes.length}{" "}
-            {ordenes.length === 1 ? "orden registrada" : "órdenes registradas"}
+            {ordenesFiltradas.length}{" "}
+            {ordenesFiltradas.length === 1 ? "orden" : "órdenes"}
+            {ordenes.length !== ordenesFiltradas.length && (
+              <span className="text-gray-400"> de {ordenes.length} totales</span>
+            )}
           </p>
         </div>
         <Link href="/ventas/nueva" className="btn-primary self-start sm:self-auto">
@@ -180,29 +233,33 @@ export default function VentasClient({
 
       {/* ── KPIs ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Ventas Cerradas: suma total_mxn de órdenes VENTA */}
         <KpiCard
           variant="ventas"
           value={kpis.ventas_mxn}
           label="Ventas cerradas"
-          sublabel={`${kpis.ventas} ${kpis.ventas === 1 ? "orden" : "órdenes"}`}
+          sublabel={`${kpis.ventas} ${kpis.ventas === 1 ? "orden" : "órdenes"} cerrada${kpis.ventas === 1 ? "" : "s"}`}
         />
+        {/* Pipeline: suma total_mxn de órdenes COTIZADO */}
         <KpiCard
           variant="pipeline"
           value={kpis.pipeline_mxn}
           label="Pipeline"
-          sublabel={`${kpis.cotizadas} ${kpis.cotizadas === 1 ? "cotización" : "cotizaciones"}`}
+          sublabel={`${kpis.cotizadas} ${kpis.cotizadas === 1 ? "cotización activa" : "cotizaciones activas"}`}
         />
+        {/* Tasa de conversión: ventas / total_ordenes * 100 */}
         <KpiCard
           variant="conversion"
           value={kpis.tasa_conversion}
           label="Tasa de conversión"
-          sublabel="Cotizadas → Ventas"
+          sublabel={`${kpis.ventas} de ${kpis.total_ordenes} órdenes`}
         />
+        {/* Total Órdenes: desglose borradores + cotizadas + suma por moneda */}
         <KpiCard
           variant="totales"
           value={kpis.total_ordenes}
           label="Total órdenes"
-          sublabel={`${kpis.borradores} ${kpis.borradores === 1 ? "borrador" : "borradores"}`}
+          sublabel={desgloseTotalOrdenes || undefined}
           extraMXN={kpis.suma_total_mxn}
           extraUSD={kpis.suma_total_usd}
         />
@@ -210,7 +267,7 @@ export default function VentasClient({
 
       {/* ── Filtros ── */}
       <div className="mb-4">
-        <FiltrosBar filtros={filtros} onChange={setFiltros} />
+        <FiltrosBar filtros={filtros} onChange={handleFiltrosChange} />
       </div>
 
       {/* ── Tabla agrupada ── */}
@@ -218,6 +275,7 @@ export default function VentasClient({
         ordenes={ordenesFiltradas}
         onEstatusChanged={handleEstatusChanged}
         onDeleteRequest={setConfirmDelete}
+        onDuplicated={handleDuplicated}
       />
 
       {/* ── Modal: confirmar eliminar ── */}

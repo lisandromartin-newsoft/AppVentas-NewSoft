@@ -15,6 +15,23 @@ datasource db {
 }
 
 // ============================================================
+// USUARIO (autenticación NextAuth)
+// Un solo rol por ahora: admin
+// Soft delete: activo = false
+// ============================================================
+model User {
+  id            String   @id @default(uuid())
+  nombre        String   @db.VarChar(150)
+  email         String   @unique @db.VarChar(100)
+  password_hash String   @db.VarChar(255)
+  activo        Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("user")
+}
+
+// ============================================================
 // 3.1 EMPRESA (configuración global)
 // Registro único — no se crean múltiples empresas
 // ============================================================

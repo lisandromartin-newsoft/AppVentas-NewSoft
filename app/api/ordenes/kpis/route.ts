@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { FiltroOrdenesSchema } from "@/lib/validations/ordenes";
@@ -81,10 +82,9 @@ export async function GET(req: NextRequest) {
       .filter((o) => o.estatus === "COTIZADO")
       .reduce((s, o) => s + o.total_mxn.toNumber(), 0);
 
+    // Fórmula correcta según doc funcional: ventas / total_ordenes * 100
     const tasa_conversion =
-      cotizadas + ventas > 0
-        ? Math.round((ventas / (cotizadas + ventas)) * 100)
-        : 0;
+      total_ordenes > 0 ? Math.round((ventas / total_ordenes) * 100) : 0;
 
     const suma_total_mxn = ordenes
       .filter((o) => o.moneda === "MXN")

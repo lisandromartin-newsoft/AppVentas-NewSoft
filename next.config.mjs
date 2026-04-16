@@ -1,7 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["@prisma/client", "prisma"],
+    // Paquetes que deben tratarse como externos en el servidor (no bundleados por webpack)
+    serverComponentsExternalPackages: [
+      "@prisma/client",
+      "prisma",
+      "@react-pdf/renderer",
+    ],
   },
 };
 

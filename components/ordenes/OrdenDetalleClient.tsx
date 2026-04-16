@@ -2,11 +2,11 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, X, Check, ArrowLeft, Copy } from "lucide-react";
+import { Pencil, X, ArrowLeft, Copy, Loader2, Check, CalendarDays, FileDown } from "lucide-react";
 import OrdenForm from "./OrdenForm";
 import StatusBadge from "./StatusBadge";
 import Toast, { ToastData } from "@/components/ui/Toast";
-import { formatMoneda, formatMXN, formatFecha, ESTATUS_COLORS, ESTATUS_LABELS } from "@/lib/utils";
+import { formatMoneda, formatMXN, formatFecha, fechaParaInput, ESTATUS_COLORS, ESTATUS_LABELS } from "@/lib/utils";
 import type { OrdenDetalle, EstatusOrden } from "@/types/ordenes";
 import Link from "next/link";
 
@@ -40,7 +40,15 @@ export default function OrdenDetalleClient({
   const router = useRouter();
   const [orden, setOrden] = useState<OrdenDetalle>(initialOrden);
   const [isEditing, setIsEditing] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
+
+  // Estado para edición inline de fecha_venta
+  const [editingFecha, setEditingFecha] = useState(false);
+  const [fechaVentaInput, setFechaVentaInput] = useState(
+    fechaParaInput(initialOrden.fecha_venta)
+  );
+  const [isSavingFecha, setIsSavingFecha] = useState(false);
 
   const closeToast = useCallback(() => setToast(null), []);
 
@@ -56,7 +64,72 @@ export default function OrdenDetalleClient({
       estatus: nuevoEstatus,
       fecha_venta: nuevoEstatus === "VENTA" ? (fechaVenta ?? prev.fecha_venta) : null,
     }));
+    // Sincronizar el input de fecha si cambió
+    if (nuevoEstatus === "VENTA" && fechaVenta) {
+      setFechaVentaInput(fechaVenta);
+    } else if (nuevoEstatus !== "VENTA") {
+      setFechaVentaInput("");
+    }
     setToast({ type: "success", message: `Estatus cambiado a ${ESTATUS_LABELS[nuevoEstatus]}` });
+  };
+
+  // ── Duplicar orden ────────────────────────────────────────────
+  const handleDuplicar = async () => {
+    setIsDuplicating(true);
+    try {
+      const res = await fetch(`/api/ordenes/${orden.id}/duplicar`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setToast({ type: "error", message: data.error || "Error al duplicar la orden" });
+        return;
+      }
+
+      const nueva = await res.json();
+      setToast({ type: "success", message: `Orden duplicada: ${nueva.folio}` });
+      // Navegar al detalle de la nueva orden después de un breve momento
+      setTimeout(() => router.push(`/ventas/${nueva.id}`), 800);
+    } catch {
+      setToast({ type: "error", message: "Error de conexión al duplicar" });
+    } finally {
+      setIsDuplicating(false);
+    }
+  };
+
+  // ── Guardar fecha de venta inline ────────────────────────────
+  const handleSaveFecha = async () => {
+    setIsSavingFecha(true);
+    try {
+      const res = await fetch(`/api/ordenes/${orden.id}/fecha-venta`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fecha_venta: fechaVentaInput || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setToast({ type: "error", message: data.error || "Error al guardar la fecha" });
+        return;
+      }
+
+      const actualizada = await res.json();
+      setOrden(actualizada);
+      setEditingFecha(false);
+      setToast({ type: "success", message: "Fecha de venta actualizada" });
+    } catch {
+      setToast({ type: "error", message: "Error de conexión" });
+    } finally {
+      setIsSavingFecha(false);
+    }
+  };
+
+  const handleCancelFecha = () => {
+    setFechaVentaInput(fechaParaInput(orden.fecha_venta));
+    setEditingFecha(false);
   };
 
   return (
@@ -92,15 +165,28 @@ export default function OrdenDetalleClient({
 
         {!isEditing && (
           <div className="flex items-center gap-2 self-start">
-            <button
-              onClick={() => {
-                router.push(`/ventas/nueva?duplicar=${orden.id}`);
-              }}
+            <a
+              href={`/api/pdf/${orden.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="btn-secondary text-sm flex items-center gap-1.5"
+              title="Descargar PDF"
+            >
+              <FileDown size={14} />
+              PDF
+            </a>
+            <button
+              onClick={handleDuplicar}
+              disabled={isDuplicating}
+              className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-60"
               title="Duplicar orden"
             >
-              <Copy size={14} />
-              Duplicar
+              {isDuplicating ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Copy size={14} />
+              )}
+              {isDuplicating ? "Duplicando..." : "Duplicar"}
             </button>
             <button
               onClick={() => setIsEditing(true)}
@@ -155,10 +241,67 @@ export default function OrdenDetalleClient({
                   label="Moneda"
                   value={`${orden.moneda}${orden.tipo_cambio ? ` (TC: $${orden.tipo_cambio})` : ""}`}
                 />
-                <InfoItem
-                  label="Fecha de venta"
-                  value={orden.fecha_venta ? formatFecha(orden.fecha_venta) : "—"}
-                />
+
+                {/* ── Fecha de venta: editable inline en cualquier estatus ── */}
+                <div>
+                  <dt className="text-xs text-gray-400 font-medium flex items-center gap-1">
+                    <CalendarDays size={11} />
+                    Fecha de venta
+                    {!editingFecha && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFechaVentaInput(fechaParaInput(orden.fecha_venta));
+                          setEditingFecha(true);
+                        }}
+                        className="ml-1 p-0.5 rounded text-gray-300 hover:text-navy hover:bg-navy/5 transition-colors"
+                        title="Editar fecha de venta"
+                      >
+                        <Pencil size={10} />
+                      </button>
+                    )}
+                  </dt>
+                  <dd className="mt-0.5">
+                    {editingFecha ? (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <input
+                          type="date"
+                          className="input text-xs py-1 px-2"
+                          value={fechaVentaInput}
+                          onChange={(e) => setFechaVentaInput(e.target.value)}
+                          disabled={isSavingFecha}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveFecha}
+                          disabled={isSavingFecha}
+                          className="p-1 rounded-lg bg-navy text-white hover:bg-navy/90 transition-colors disabled:opacity-60"
+                          title="Guardar"
+                        >
+                          {isSavingFecha ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Check size={12} />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelFecha}
+                          disabled={isSavingFecha}
+                          className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          title="Cancelar"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-gray-700">
+                        {orden.fecha_venta ? formatFecha(orden.fecha_venta) : "—"}
+                      </span>
+                    )}
+                  </dd>
+                </div>
+
                 {orden.vigencia && (
                   <InfoItem label="Vigencia" value={orden.vigencia} />
                 )}

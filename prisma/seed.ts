@@ -2,6 +2,7 @@
  * Newsoft Sales — Seed de datos iniciales
  *
  * Crea:
+ *  - 1 Usuario admin (roldan@newsoft.mx)
  *  - 1 Empresa (Newsoft Technologies)
  *  - 4 Tipos de cotización
  *  - 7 Condiciones comerciales
@@ -11,11 +12,46 @@
  */
 
 import { PrismaClient, EstatusOrden, Moneda } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log("🌱 Iniciando seed de Newsoft Sales...\n");
+
+  // ──────────────────────────────────────────
+  // 0. USUARIOS
+  // ──────────────────────────────────────────
+  console.log("🔐 Creando usuario administrador...");
+
+  const adminPassword = process.env.ADMIN_PASSWORD ?? "newsoft2026";
+  const salesPassword = process.env.SALES_PASSWORD ?? "newsoft2026";
+
+  const [userRoldan, userElva] = await Promise.all([
+    prisma.user.upsert({
+      where: { email: "roldan@newsoft.mx" },
+      update: {},
+      create: {
+        nombre: "Roldán",
+        email: "roldan@newsoft.mx",
+        password_hash: await bcrypt.hash(adminPassword, 12),
+        activo: true,
+      },
+    }),
+    prisma.user.upsert({
+      where: { email: "elva@newsoft.mx" },
+      update: {},
+      create: {
+        nombre: "Elva",
+        email: "elva@newsoft.mx",
+        password_hash: await bcrypt.hash(salesPassword, 12),
+        activo: true,
+      },
+    }),
+  ]);
+
+  console.log(`   ✓ ${userRoldan.email}`);
+  console.log(`   ✓ ${userElva.email}\n`);
 
   // ──────────────────────────────────────────
   // 1. EMPRESA
@@ -468,6 +504,7 @@ async function main() {
 
   console.log("✅ Seed completado exitosamente!\n");
   console.log("📊 Resumen:");
+  console.log(`   - 2 usuarios (roldan@newsoft.mx, elva@newsoft.mx)`);
   console.log(`   - 1 empresa configurada`);
   console.log(`   - ${tipos.length} tipos de cotización`);
   console.log(`   - ${condiciones.length} condiciones comerciales`);
