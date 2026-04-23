@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Suspense } from "react";
@@ -21,15 +20,15 @@ function LoginForm() {
     setError(null);
     setLoading(true);
 
-    const result = await signIn("credentials", {
-      email: email.trim().toLowerCase(),
-      password,
-      redirect: false,
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
     });
 
     setLoading(false);
 
-    if (result?.error) {
+    if (!res.ok) {
       setError("Email o contraseña incorrectos.");
       return;
     }
