@@ -100,7 +100,7 @@ Reutiliza `Cliente`, `Vendedor`, `OrdenVenta`, `TipoCotizacion` existentes (ver 
 |---|---|---|
 | **Días en etapa** | Cuántos días lleva el deal en su stage actual | `now - fecha_entrada_stage`; se reinicia al mover de stage |
 | **Temperatura** | Clasifica el deal en 5 niveles | Manual al inicio; a futuro derivable de actividad reciente + IA |
-| **Probabilidad de cierre** | % de probabilidad | **Decisión abierta** (Roldán: TBD). Opciones: (a) fijo por stage, (b) determinístico por parámetros, (c) híbrido LLM+determinístico (el LLM etiqueta, un motor calcula) |
+| **Probabilidad de cierre** | % de probabilidad | **Híbrido LLM + determinístico** (decidido): base fija por stage, **ajustada por la IA** según actividad/objeciones del deal. El LLM etiqueta señales; el motor determinístico calcula el % final |
 | **Sugerencias IA** | 3 acciones + objeciones + riesgo por deal | Backend → Claude (ver §6) |
 | **Inbox consolidado** | Junta las acciones sugeridas de todos los deals del vendedor | Query sobre `DealAnalisisIA` / acciones pendientes |
 
@@ -113,7 +113,7 @@ El mockup llama a `api.anthropic.com` **directo desde el navegador** con el mode
 **Arquitectura correcta:**
 - **Toda llamada a Claude pasa por un route handler del backend** (`app/api/crm/deals/[id]/analizar/route.ts`), nunca desde el browser. La API key vive en variables de entorno del servidor.
 - **SDK oficial** `@anthropic-ai/sdk` (el proyecto es Next.js/TypeScript).
-- **Modelo:** por defecto **`claude-opus-4-8`** (el más capaz). Dado que Roldán quiere **cobrar por consumo**, el equipo puede elegir **`claude-sonnet-4-6`** para análisis de alto volumen (más barato) — es una decisión de negocio/costo, no técnica. *(Decisión abierta.)*
+- **Modelo: configurable por entorno** (decidido). Variable de entorno `CRM_AI_MODEL` para alternar entre `claude-opus-4-8` (calidad, default de arranque) y `claude-sonnet-4-6` (~5× más barato en output) sin tocar código. Se decide el modelo de producción con **datos de consumo reales** (relevante para el cobro-por-consumo).
 - **Salida estructurada:** usar `output_config: { format: { type: "json_schema", schema: … } }` (structured outputs) para garantizar el JSON de acciones/objeciones/riesgo — más robusto que el "responde solo JSON" + limpieza con regex del mockup.
 - **Patrón híbrido LLM + determinístico** (lo que Roldán y Lisandro discutieron): el LLM **propone/etiqueta** (objeciones, señales, acciones); un motor determinístico **decide/ejecuta** según parámetros (ej. probabilidad de cierre, priorización del inbox). Aplica directo a este módulo.
 - **Contexto del análisis:** datos del deal + bitácora + transcript subido → prompt del sistema (como en el mockup, pero server-side).
@@ -142,7 +142,7 @@ El mockup llama a `api.anthropic.com` **directo desde el navegador** con el mode
 **MVP (lo más prioritario según Roldán):**
 1. Entidades Deal + PipelineStage (stages configurables) + DealActividad.
 2. Vista Kanban con KPIs, tarjetas, drag & drop entre stages.
-3. Detalle del deal: info + bitácora (nota/llamada/email/WhatsApp).
+3. Detalle del deal: info + bitácora (nota/llamada/email/**WhatsApp como registro manual**). Alta de deals **manual** (desde Clientes). Contactos del deal como entidad propia (`DealContacto`).
 4. **Panel de IA:** subir transcript → 3 acciones + objeciones + riesgo (backend + Claude).
 5. Hand-off básico: "Marcar ganado" → sugiere crear orden.
 
@@ -153,19 +153,28 @@ El mockup llama a `api.anthropic.com` **directo desde el navegador** con el mode
 - Historial del cliente embebido.
 
 **Fase 3:**
-- Captura automática desde la web.
-- Integración real de WhatsApp.
+- Integración real de WhatsApp (WhatsApp Business API).
 - Cobro por consumo de IA / métricas de uso.
+
+**Sin fecha (a evaluar más adelante):**
+- Captura automática de prospectos desde la web (formulario → primer stage). Por ahora el alta es **manual**.
 
 ---
 
-## 10. Decisiones abiertas (para Roldán + Víctor)
+## 10. Decisiones resueltas (2026-06-18, con Lisandro)
 
-1. **Probabilidad de cierre:** ¿qué parámetros / qué método (fijo por stage, determinístico, híbrido)? — Roldán iba a investigar.
-2. **Proveedor/modelo de IA y costo:** `claude-opus-4-8` (calidad) vs `claude-sonnet-4-6` (costo, alto volumen). ¿Dónde se hostea y cómo se mide el consumo para facturar?
-3. **Captura desde la web:** ¿en MVP o fase 2?
-4. **WhatsApp:** ¿solo registrar actividad manual (MVP) o integración real (fase 3)?
-5. **Visibilidad:** confirmar abierta (todos ven todo) y no scoped por vendedor.
-6. **Deal ↔ Orden:** ¿el deal *genera* la orden automáticamente al ganar, o solo la *sugiere*?
-7. **Contactos:** ¿entidad propia del deal o se reutiliza el contacto del Cliente?
-8. **Alineación de plataforma:** validar con Víctor que el enfoque encaja con la "plataforma de plataformas".
+| # | Decisión | Resolución |
+|---|---|---|
+| 1 | **Probabilidad de cierre** | **Híbrido LLM + determinístico** — base por stage, ajustada por la IA según actividad/objeciones. |
+| 2 | **Modelo de IA** | **Configurable por entorno** (`CRM_AI_MODEL`): `claude-opus-4-8` ↔ `claude-sonnet-4-6`. Se decide producción con consumo real. |
+| 3 | **Captura desde la web** | **Alta manual por ahora** (desde Clientes). La captura web queda sin fecha, a evaluar. |
+| 4 | **WhatsApp** | **Registro manual en el MVP** (tipo de actividad). Integración real con WhatsApp Business API → fase 3. |
+| 5 | **Visibilidad** | **Abierta** — todos los vendedores ven todos los deals (≠ scoping de órdenes). Confirmado lo que pidió Roldán. |
+| 6 | **Deal → Orden** | **Sugiere y precarga** — al ganar, crea un borrador de orden con los datos del deal; el usuario confirma y completa partidas. |
+| 7 | **Contactos** | **Entidad propia** `DealContacto` (nombre, rol, email, tel, WhatsApp) — soporta múltiples contactos con rol como en el mockup. |
+
+### Pendiente (confirmación externa)
+
+| # | Decisión | Responsable |
+|---|---|---|
+| 8 | **Alineación de plataforma** — validar que el enfoque encaja con la "plataforma de plataformas". | **Víctor** |
