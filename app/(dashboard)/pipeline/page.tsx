@@ -18,7 +18,7 @@ export default async function PipelinePage() {
   const session = await getServerSession();
 
   // Visibilidad abierta: todos los vendedores ven todos los deals (decisión de negocio).
-  const [stages, deals, vendedores] = await Promise.all([
+  const [stages, deals, vendedores, clientes, tipos] = await Promise.all([
     prisma.pipelineStage.findMany({
       where: { activo: true },
       orderBy: { orden: "asc" },
@@ -34,6 +34,16 @@ export default async function PipelinePage() {
       orderBy: { created_at: "desc" },
     }),
     prisma.vendedor.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    }),
+    prisma.cliente.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    }),
+    prisma.tipoCotizacion.findMany({
       where: { activo: true },
       select: { id: true, nombre: true },
       orderBy: { nombre: "asc" },
@@ -61,6 +71,8 @@ export default async function PipelinePage() {
       stages={stagesSerialized}
       deals={dealsSerialized}
       vendedores={vendedores}
+      clientes={clientes}
+      tipos={tipos}
       canWrite={canWrite(session)}
     />
   );

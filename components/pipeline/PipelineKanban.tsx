@@ -9,11 +9,14 @@ import {
   type DealResumen,
   type StageResumen,
 } from "@/types/crm";
+import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 
 interface Props {
   stages: StageResumen[];
   deals: DealResumen[];
   vendedores: { id: string; nombre: string }[];
+  clientes: { id: string; nombre: string }[];
+  tipos: { id: string; nombre: string }[];
   canWrite: boolean;
 }
 
@@ -24,12 +27,13 @@ function fmt(n: number): string {
   return "$" + n.toLocaleString("es-MX");
 }
 
-export default function PipelineKanban({ stages, deals, vendedores, canWrite }: Props) {
+export default function PipelineKanban({ stages, deals, vendedores, clientes, tipos, canWrite }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<DealResumen[]>(deals);
   const [vendedorFiltro, setVendedorFiltro] = useState<string>("todos");
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -111,7 +115,7 @@ export default function PipelineKanban({ stages, deals, vendedores, canWrite }: 
           </select>
           {canWrite && (
             <button
-              onClick={() => alert("Crear deal — disponible en la siguiente fase")}
+              onClick={() => setModalOpen(true)}
               className="flex items-center gap-1.5 rounded-lg bg-orange px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange/90"
             >
               <Plus size={16} /> Nuevo Deal
@@ -196,6 +200,20 @@ export default function PipelineKanban({ stages, deals, vendedores, canWrite }: 
           })}
         </div>
       </div>
+
+      {modalOpen && canWrite && (
+        <NuevoDealModal
+          stages={stages}
+          vendedores={vendedores}
+          clientes={clientes}
+          tipos={tipos}
+          onClose={() => setModalOpen(false)}
+          onCreated={(deal) => {
+            setItems((cur) => [deal, ...cur]);
+            setModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
