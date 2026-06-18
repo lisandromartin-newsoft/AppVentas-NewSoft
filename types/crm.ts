@@ -42,3 +42,61 @@ export const TEMPERATURA_META: Record<
 };
 
 export const TEMPERATURAS_CALIENTES: Temperatura[] = ["CALIENTE", "MUY_CALIENTE"];
+
+// ── Detalle del deal ──
+
+export type TipoActividad = "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP" | "SISTEMA";
+export type RolContacto = "DECISOR" | "INFLUENCIADOR" | "USUARIO" | "OTRO";
+
+export interface DealContactoItem {
+  id: string;
+  nombre: string;
+  rol: RolContacto;
+  email: string | null;
+  telefono: string | null;
+  whatsapp: string | null;
+}
+
+export interface DealActividadItem {
+  id: string;
+  tipo: TipoActividad;
+  contenido: string;
+  autor: string;
+  es_tarea: boolean;
+  completada: boolean;
+  fecha_tarea: string | null;
+  created_at: string;
+}
+
+export interface DealDetalle {
+  id: string;
+  nombre: string;
+  moneda: string;
+  valor: number;
+  setup: number | null;
+  mensualidad: number | null;
+  meses: number | null;
+  temperatura: Temperatura;
+  probabilidad: number | null;
+  canal: string | null;
+  origen: string | null;
+  resultado: string;
+  fecha_cierre_estimada: string | null;
+  dias_abierto: number;
+  notas: string | null;
+  stage: { id: string; nombre: string; orden: number };
+  cliente: { id: string; nombre: string } | null;
+  vendedor: { id: string; nombre: string } | null;
+  tipo: { id: string; nombre: string } | null;
+  contactos: DealContactoItem[];
+  actividades: DealActividadItem[];
+  historial: { ordenes_total: number; proyectos_ganados: number; total_facturado: number };
+}
+
+export const ROL_CONTACTO_LABEL: Record<RolContacto, string> = {
+  DECISOR: "Decisor",
+  INFLUENCIADOR: "Influenciador",
+  USUARIO: "Usuario",
+  OTRO: "Contacto",
+};
+
