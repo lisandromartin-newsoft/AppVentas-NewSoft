@@ -613,7 +613,34 @@ async function main() {
     create: { id: "62000000-0000-0000-0000-000000000002", deal_id: dealDemo, tipo: "LLAMADA", autor: "Gabriela García", contenido: "Llamada 32 min con Irvin. Dudas sobre modelo de consumo por conversación. Interés alto, pide referencias." },
   });
 
-  console.log(`   ✓ ${vendedores.length} vendedores, ${stages.length} stages, ${deals.length} deals demo`);
+  // 6.5 Tareas pendientes (alimentan el inbox "Mis acciones")
+  const enDias = (d: number) => new Date(Date.now() + d * 86400000);
+  const tareasDef = [
+    { id: "63000000-0000-0000-0000-000000000001", deal: "60000000-0000-0000-0000-000000000002", tipo: "EMAIL", texto: "Enviar adenda con módulo Salesforce a Irvin Álvarez", dias: 0 },
+    { id: "63000000-0000-0000-0000-000000000002", deal: "60000000-0000-0000-0000-000000000001", tipo: "LLAMADA", texto: "Confirmar reunión con TI para validación técnica de integración", dias: 1 },
+    { id: "63000000-0000-0000-0000-000000000003", deal: "60000000-0000-0000-0000-000000000004", tipo: "LLAMADA", texto: "Agendar llamada de cierre antes del 30 de junio", dias: 5 },
+    { id: "63000000-0000-0000-0000-000000000004", deal: "60000000-0000-0000-0000-000000000003", tipo: "EMAIL", texto: "Compartir caso de éxito de implementación similar", dias: 6 },
+  ];
+  await Promise.all(
+    tareasDef.map((t) =>
+      prisma.dealActividad.upsert({
+        where: { id: t.id },
+        update: {},
+        create: {
+          id: t.id,
+          deal_id: t.deal,
+          tipo: t.tipo as never,
+          autor: "Roldán Ayala",
+          contenido: t.texto,
+          es_tarea: true,
+          completada: false,
+          fecha_tarea: enDias(t.dias),
+        },
+      })
+    )
+  );
+
+  console.log(`   ✓ ${vendedores.length} vendedores, ${stages.length} stages, ${deals.length} deals demo, ${tareasDef.length} tareas`);
 
   console.log("✅ Seed completado exitosamente!\n");
   console.log("📊 Resumen:");

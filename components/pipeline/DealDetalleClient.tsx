@@ -58,6 +58,30 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   const [tipoNueva, setTipoNueva] = useState<TipoActividad>("NOTA");
   const [texto, setTexto] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const [ganando, setGanando] = useState(false);
+
+  async function marcarGanado() {
+    if (ganando) return;
+    if (!confirm(`¿Marcar "${deal.nombre}" como ganado? Se sugerirá crear la orden de venta.`)) return;
+    setGanando(true);
+    try {
+      const res = await fetch(`/api/crm/deals/${deal.id}/ganar`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "Error");
+      // Hand-off: ir a crear la orden con los datos del deal precargados
+      const h = data.handoff;
+      const params = new URLSearchParams();
+      if (h?.cliente_id) params.set("cliente_id", h.cliente_id);
+      if (h?.vendedor_id) params.set("vendedor_id", h.vendedor_id);
+      if (h?.descripcion) params.set("descripcion", h.descripcion);
+      if (h?.valor) params.set("valor", String(h.valor));
+      params.set("deal_id", deal.id);
+      router.push(`/ventas/nueva?${params.toString()}`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "No se pudo marcar como ganado.");
+      setGanando(false);
+    }
+  }
 
   const actividadesFiltradas = actividades.filter((a) => {
     if (tab === "Emails") return a.tipo === "EMAIL";
@@ -99,12 +123,13 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
           <span>›</span>
           <span className="font-semibold text-navy">{deal.nombre}</span>
         </nav>
-        {canWrite && (
+        {canWrite && deal.resultado !== "GANADO" && (
           <button
-            onClick={() => alert("Marcar ganado → precarga de orden: Fase 5")}
-            className="flex items-center gap-1.5 rounded-lg bg-orange px-3.5 py-2 text-sm font-semibold text-white hover:bg-orange/90"
+            onClick={marcarGanado}
+            disabled={ganando}
+            className="flex items-center gap-1.5 rounded-lg bg-orange px-3.5 py-2 text-sm font-semibold text-white hover:bg-orange/90 disabled:opacity-50"
           >
-            <Trophy size={15} /> Marcar ganado
+            <Trophy size={15} /> {ganando ? "Procesando…" : "Marcar ganado"}
           </button>
         )}
       </header>

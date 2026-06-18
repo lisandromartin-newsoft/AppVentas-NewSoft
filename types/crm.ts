@@ -93,6 +93,21 @@ export interface DealDetalle {
   historial: { ordenes_total: number; proyectos_ganados: number; total_facturado: number };
 }
 
+// ── Inbox de acciones ──
+export interface AccionItem {
+  id: string;
+  tipo: TipoActividad;
+  contenido: string;
+  fecha_tarea: string | null;
+  deal: {
+    id: string;
+    nombre: string;
+    valor: number;
+    temperatura: Temperatura;
+    vendedor: { id: string; nombre: string } | null;
+  };
+}
+
 export const ROL_CONTACTO_LABEL: Record<RolContacto, string> = {
   DECISOR: "Decisor",
   INFLUENCIADOR: "Influenciador",
