@@ -27,6 +27,8 @@ export interface DealResumen {
   dias_en_etapa: number;
   /** Nº de actividades registradas (para ordenar por engagement) */
   actividades_count: number;
+  /** Próximo seguimiento agendado pendiente (ISO con hora), o null */
+  proximo_seguimiento: string | null;
   cliente: { id: string; nombre: string } | null;
   vendedor: { id: string; nombre: string } | null;
   tipo: { id: string; nombre: string } | null;

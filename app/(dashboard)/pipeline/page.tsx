@@ -31,6 +31,13 @@ export default async function PipelinePage() {
         vendedor: { select: { id: true, nombre: true } },
         tipo_cotizacion: { select: { id: true, nombre: true } },
         _count: { select: { actividades: true } },
+        // Próximo seguimiento pendiente (tarea agendada más cercana)
+        actividades: {
+          where: { es_tarea: true, completada: false, fecha_tarea: { not: null } },
+          orderBy: { fecha_tarea: "asc" },
+          take: 1,
+          select: { fecha_tarea: true },
+        },
       },
       orderBy: { created_at: "desc" },
     }),
@@ -64,6 +71,9 @@ export default async function PipelinePage() {
     stage_id: d.stage_id,
     dias_en_etapa: diasEnEtapa(d.fecha_entrada_stage),
     actividades_count: d._count.actividades,
+    proximo_seguimiento: d.actividades[0]?.fecha_tarea
+      ? d.actividades[0].fecha_tarea.toISOString()
+      : null,
     cliente: d.cliente ? { id: d.cliente.id, nombre: d.cliente.nombre } : null,
     vendedor: d.vendedor ? { id: d.vendedor.id, nombre: d.vendedor.nombre } : null,
     tipo: d.tipo_cotizacion ? { id: d.tipo_cotizacion.id, nombre: d.tipo_cotizacion.nombre } : null,

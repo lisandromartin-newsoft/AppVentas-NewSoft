@@ -465,10 +465,10 @@ model DealActividad {
   fecha_evento DateTime?     @db.Timestamptz(6)
   // Solo para LLAMADA: si contestó / fue exitosa
   exitosa      Boolean?
-  // Si es una tarea pendiente con check (uso futuro — Fase 2 / inbox)
+  // Seguimiento agendado: próximo paso con fecha y hora (alimenta inbox/IA Fase 2)
   es_tarea     Boolean       @default(false)
   completada   Boolean       @default(false)
-  fecha_tarea  DateTime?     @db.Date
+  fecha_tarea  DateTime?     @db.Timestamptz(6)
   created_at   DateTime      @default(now()) @db.Timestamptz(6)
 
   @@index([deal_id])

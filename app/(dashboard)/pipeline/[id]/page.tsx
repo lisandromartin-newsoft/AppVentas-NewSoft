@@ -97,7 +97,7 @@ export default async function DealDetallePage({
       exitosa: a.exitosa,
       es_tarea: a.es_tarea,
       completada: a.completada,
-      fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString().slice(0, 10) : null,
+      fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString() : null,
       created_at: a.created_at.toISOString(),
     })),
     historial: {

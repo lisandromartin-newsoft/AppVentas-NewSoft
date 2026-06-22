@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MessageCircle, StickyNote,
-  Building2, Trophy, Cog, ChevronDown, XCircle, PauseCircle, Play,
+  Building2, Trophy, Cog, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 
@@ -76,6 +76,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   const [contactoSel, setContactoSel] = useState("");
   const [fechaEvento, setFechaEvento] = useState("");
   const [exitosa, setExitosa] = useState(true);
+  const [seguimiento, setSeguimiento] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -119,6 +120,16 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
     filtroVer === "TODAS" ? true : a.tipo === filtroVer
   );
 
+  // Próximo seguimiento pendiente (tarea agendada más cercana)
+  const proximoSeguimiento =
+    actividades
+      .filter((a) => a.es_tarea && !a.completada && a.fecha_tarea)
+      .map((a) => a.fecha_tarea as string)
+      .sort()[0] ?? null;
+  const seguimientoVencido = proximoSeguimiento
+    ? new Date(proximoSeguimiento).getTime() < Date.now()
+    : false;
+
   async function guardarActividad() {
     if (!texto.trim() || guardando) return;
     setGuardando(true);
@@ -132,6 +143,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
           contacto_id: contactoSel || undefined,
           fecha_evento: fechaEvento || undefined,
           exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
+          fecha_tarea: seguimiento || undefined,
         }),
       });
       if (!res.ok) throw new Error();
@@ -141,6 +153,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
       setContactoSel("");
       setFechaEvento("");
       setExitosa(true);
+      setSeguimiento("");
     } catch {
       alert("No se pudo guardar la actividad.");
     } finally {
@@ -209,6 +222,17 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
             <Building2 size={14} className="text-gray-400" />
             {deal.cliente?.nombre ?? "Sin cliente"}
           </div>
+
+          {proximoSeguimiento && (
+            <div
+              className={`mt-3 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${
+                seguimientoVencido ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"
+              }`}
+            >
+              <CalendarClock size={13} />
+              {seguimientoVencido ? "Seguimiento vencido:" : "Próximo seguimiento:"} {fmtHora(proximoSeguimiento)}
+            </div>
+          )}
 
           {/* Progreso de stages */}
           <div className="mt-4">
@@ -297,22 +321,26 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
               {/* Campos según el tipo */}
               {tipoNueva !== "NOTA" && (
                 <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <select
-                    value={contactoSel}
-                    onChange={(e) => setContactoSel(e.target.value)}
-                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
-                  >
-                    <option value="">{tipoNueva === "EMAIL" ? "¿A quién?" : "¿Con quién?"} (contacto)</option>
-                    {deal.contactos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </select>
-                  {tipoNueva === "LLAMADA" && (
+                  <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
+                    {tipoNueva === "EMAIL" ? "¿A quién?" : "¿Con quién?"}
+                    <select
+                      value={contactoSel}
+                      onChange={(e) => setContactoSel(e.target.value)}
+                      className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
+                    >
+                      <option value="">— Selecciona contacto —</option>
+                      {deal.contactos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
+                    Cuándo ocurrió
                     <input
                       type="datetime-local"
                       value={fechaEvento}
                       onChange={(e) => setFechaEvento(e.target.value)}
                       className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
                     />
-                  )}
+                  </label>
                   {tipoNueva === "LLAMADA" && (
                     <label className="flex items-center gap-2 text-sm text-gray-600 sm:col-span-2">
                       <input type="checkbox" checked={exitosa} onChange={(e) => setExitosa(e.target.checked)} className="h-4 w-4" /> ¿Contestó / fue exitosa?
@@ -328,7 +356,18 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
                 rows={3}
                 className="w-full resize-none rounded-lg border border-surface-border bg-surface px-3.5 py-2.5 text-sm text-navy outline-none focus:border-orange focus:bg-white"
               />
-              <div className="mt-3 flex justify-end">
+
+              {/* Agendar próximo paso (opcional) — alimenta el inbox/IA de la Fase 2 */}
+              <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+                <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
+                  <span className="flex items-center gap-1"><CalendarClock size={12} /> Agendar seguimiento (opcional)</span>
+                  <input
+                    type="datetime-local"
+                    value={seguimiento}
+                    onChange={(e) => setSeguimiento(e.target.value)}
+                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
+                  />
+                </label>
                 <button
                   onClick={guardarActividad}
                   disabled={!texto.trim() || guardando}
@@ -387,6 +426,11 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
                         style={{ borderLeftWidth: 3, borderLeftColor: meta.color }}
                       >
                         {a.contenido}
+                        {a.es_tarea && a.fecha_tarea && (
+                          <div className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-blue-700">
+                            <CalendarClock size={12} /> Seguimiento agendado: {fmtHora(a.fecha_tarea)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

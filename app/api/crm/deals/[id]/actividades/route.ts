@@ -25,12 +25,13 @@ export async function POST(
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const { tipo, contenido, contacto_id, fecha_evento, exitosa } = (body ?? {}) as {
+  const { tipo, contenido, contacto_id, fecha_evento, exitosa, fecha_tarea } = (body ?? {}) as {
     tipo?: string;
     contenido?: string;
     contacto_id?: string;
     fecha_evento?: string;
     exitosa?: boolean;
+    fecha_tarea?: string;
   };
 
   if (!tipo || !TIPOS.includes(tipo as (typeof TIPOS)[number])) {
@@ -58,9 +59,13 @@ export async function POST(
         contenido: contenido.trim(),
         autor: session.email,
         contacto_id: contactoId,
-        // Email registra la fecha automáticamente (now); los demás pueden indicarla
-        fecha_evento: fecha_evento ? new Date(fecha_evento) : tipo === "EMAIL" ? new Date() : null,
+        // Las interacciones (llamada/email/whatsapp) registran cuándo ocurrieron;
+        // si no se indica, se asume "ahora". Las notas no tienen fecha de evento.
+        fecha_evento: tipo === "NOTA" ? null : fecha_evento ? new Date(fecha_evento) : new Date(),
         exitosa: tipo === "LLAMADA" ? (typeof exitosa === "boolean" ? exitosa : null) : null,
+        // Seguimiento opcional: agenda el próximo paso (con fecha y hora)
+        es_tarea: Boolean(fecha_tarea),
+        fecha_tarea: fecha_tarea ? new Date(fecha_tarea) : null,
       },
       include: { contacto: { select: { nombre: true } } },
     });
@@ -76,7 +81,7 @@ export async function POST(
         exitosa: actividad.exitosa,
         es_tarea: actividad.es_tarea,
         completada: actividad.completada,
-        fecha_tarea: actividad.fecha_tarea ? actividad.fecha_tarea.toISOString().slice(0, 10) : null,
+        fecha_tarea: actividad.fecha_tarea ? actividad.fecha_tarea.toISOString() : null,
         created_at: actividad.created_at.toISOString(),
       },
       { status: 201 }
