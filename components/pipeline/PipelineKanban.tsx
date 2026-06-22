@@ -34,7 +34,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
   const [vendedorFiltro, setVendedorFiltro] = useState<string>("todos");
   const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
   const [vista, setVista] = useState<"tablero" | "lista">("tablero");
-  const [orden, setOrden] = useState<"none" | "valor" | "temperatura" | "probabilidad" | "actividad">("none");
+  const [orden, setOrden] = useState<"none" | "valor" | "temperatura" | "probabilidad" | "actividad" | "seguimiento">("none");
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -56,6 +56,12 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
       if (orden === "valor") return b.valor - a.valor;
       if (orden === "temperatura") return TEMPERATURA_RANK[b.temperatura] - TEMPERATURA_RANK[a.temperatura];
       if (orden === "probabilidad") return (b.probabilidad ?? 0) - (a.probabilidad ?? 0);
+      if (orden === "seguimiento") {
+        // Más urgente arriba (vencidos/próximos primero); sin seguimiento al final
+        const ta = a.proximo_seguimiento ? new Date(a.proximo_seguimiento).getTime() : Infinity;
+        const tb = b.proximo_seguimiento ? new Date(b.proximo_seguimiento).getTime() : Infinity;
+        return ta - tb;
+      }
       return b.actividades_count - a.actividades_count; // actividad
     });
     return copy;
@@ -192,6 +198,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
             <option value="temperatura">Más calientes</option>
             <option value="probabilidad">Mayor probabilidad</option>
             <option value="actividad">Más actividad</option>
+            <option value="seguimiento">Próximo seguimiento</option>
           </select>
           <span className="flex items-center gap-1.5 text-xs text-gray-400"><Filter size={14} /> {stages.length} etapas</span>
         </div>
