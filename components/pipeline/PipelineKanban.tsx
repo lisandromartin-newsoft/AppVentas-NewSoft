@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Filter, Building2, Clock } from "lucide-react";
+import { Plus, Filter, Building2, Clock, LayoutGrid, List, ArrowDownUp } from "lucide-react";
 import {
   TEMPERATURA_META,
   TEMPERATURAS_CALIENTES,
+  TEMPERATURA_RANK,
   type DealResumen,
   type StageResumen,
 } from "@/types/crm";
@@ -31,17 +32,34 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
   const router = useRouter();
   const [items, setItems] = useState<DealResumen[]>(deals);
   const [vendedorFiltro, setVendedorFiltro] = useState<string>("todos");
+  const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
+  const [vista, setVista] = useState<"tablero" | "lista">("tablero");
+  const [orden, setOrden] = useState<"none" | "valor" | "temperatura" | "probabilidad" | "actividad">("none");
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   const filtered = useMemo(
     () =>
-      vendedorFiltro === "todos"
-        ? items
-        : items.filter((d) => d.vendedor?.id === vendedorFiltro),
-    [items, vendedorFiltro]
+      items.filter(
+        (d) =>
+          (vendedorFiltro === "todos" || d.vendedor?.id === vendedorFiltro) &&
+          (tipoFiltro === "todos" || d.tipo?.id === tipoFiltro)
+      ),
+    [items, vendedorFiltro, tipoFiltro]
   );
+
+  function sortDeals(arr: DealResumen[]): DealResumen[] {
+    if (orden === "none") return arr;
+    const copy = [...arr];
+    copy.sort((a, b) => {
+      if (orden === "valor") return b.valor - a.valor;
+      if (orden === "temperatura") return TEMPERATURA_RANK[b.temperatura] - TEMPERATURA_RANK[a.temperatura];
+      if (orden === "probabilidad") return (b.probabilidad ?? 0) - (a.probabilidad ?? 0);
+      return b.actividades_count - a.actividades_count; // actividad
+    });
+    return copy;
+  }
 
   // Deals activos (en etapas) vs suspendidos (columna Pausados)
   const activos = filtered.filter((d) => d.resultado === "ABIERTO");
@@ -55,7 +73,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
   const promedio = activos.length ? valorTotal / activos.length : 0;
 
   const dealsByStage = (stageId: string) =>
-    activos.filter((d) => d.stage_id === stageId);
+    sortDeals(activos.filter((d) => d.stage_id === stageId));
 
   async function moverDeal(dealId: string, nuevoStageId: string) {
     const prev = items;
@@ -106,6 +124,16 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
             )}
           </div>
           <select
+            value={tipoFiltro}
+            onChange={(e) => setTipoFiltro(e.target.value)}
+            className="rounded-lg border border-surface-border bg-white px-3 py-1.5 text-sm font-medium text-navy outline-none"
+          >
+            <option value="todos">Todos los tipos</option>
+            {tipos.map((t) => (
+              <option key={t.id} value={t.id}>{t.nombre}</option>
+            ))}
+          </select>
+          <select
             value={vendedorFiltro}
             onChange={(e) => setVendedorFiltro(e.target.value)}
             className="rounded-lg border border-surface-border bg-white px-3 py-1.5 text-sm font-medium text-navy outline-none"
@@ -117,6 +145,23 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
               </option>
             ))}
           </select>
+          {/* Toggle tablero / lista */}
+          <div className="flex overflow-hidden rounded-lg border border-surface-border">
+            <button
+              onClick={() => setVista("tablero")}
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold ${vista === "tablero" ? "bg-navy text-white" : "text-gray-500 hover:bg-surface"}`}
+              title="Vista tablero"
+            >
+              <LayoutGrid size={14} />
+            </button>
+            <button
+              onClick={() => setVista("lista")}
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold ${vista === "lista" ? "bg-navy text-white" : "text-gray-500 hover:bg-surface"}`}
+              title="Vista lista"
+            >
+              <List size={14} />
+            </button>
+          </div>
           {canWrite && (
             <button
               onClick={() => setModalOpen(true)}
@@ -135,12 +180,25 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
         <Kpi label="Deals activos" value={String(activos.length)} />
         <Kpi label="🔥 Calientes" value={String(calientes)} />
         <Kpi label="Promedio deal" value={fmt(promedio)} />
-        <div className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
-          <Filter size={14} /> {stages.length} etapas
+        <div className="ml-auto flex items-center gap-2">
+          <ArrowDownUp size={14} className="text-gray-400" />
+          <select
+            value={orden}
+            onChange={(e) => setOrden(e.target.value as typeof orden)}
+            className="rounded-lg border border-surface-border bg-white px-2.5 py-1.5 text-xs font-medium text-navy outline-none"
+          >
+            <option value="none">Orden por defecto</option>
+            <option value="valor">Mayor valor</option>
+            <option value="temperatura">Más calientes</option>
+            <option value="probabilidad">Mayor probabilidad</option>
+            <option value="actividad">Más actividad</option>
+          </select>
+          <span className="flex items-center gap-1.5 text-xs text-gray-400"><Filter size={14} /> {stages.length} etapas</span>
         </div>
       </div>
 
       {/* Tablero Kanban */}
+      {vista === "tablero" && (
       <div className="flex-1 overflow-x-auto bg-surface px-6 py-5">
         <div className="flex min-w-max items-start gap-3.5">
           {stages.map((stage) => {
@@ -233,6 +291,64 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
           )}
         </div>
       </div>
+      )}
+
+      {/* Vista lista */}
+      {vista === "lista" && (
+        <div className="flex-1 overflow-auto bg-surface px-6 py-5">
+          <div className="overflow-hidden rounded-xl border border-surface-border bg-white">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-surface-border bg-gray-50 text-left text-[11px] uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 font-semibold">Deal</th>
+                  <th className="px-4 py-3 font-semibold">Cliente</th>
+                  <th className="px-4 py-3 font-semibold">Etapa</th>
+                  <th className="px-4 py-3 text-center font-semibold">Temp.</th>
+                  <th className="px-4 py-3 text-center font-semibold">Prob.</th>
+                  <th className="px-4 py-3 text-center font-semibold">Días</th>
+                  <th className="px-4 py-3 text-center font-semibold">Act.</th>
+                  <th className="px-4 py-3 text-right font-semibold">Valor</th>
+                  <th className="px-4 py-3 font-semibold">Dueño</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border">
+                {sortDeals(activos).map((d) => {
+                  const t = TEMPERATURA_META[d.temperatura];
+                  return (
+                    <tr key={d.id} onClick={() => router.push(`/pipeline/${d.id}`)} className="cursor-pointer hover:bg-surface">
+                      <td className="px-4 py-2.5 font-semibold text-navy">{d.nombre}</td>
+                      <td className="px-4 py-2.5 text-gray-600">{d.cliente?.nombre ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-gray-600">{stages.find((s) => s.id === d.stage_id)?.nombre ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${t.color}1A`, color: t.color }}>
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: t.color }} />{t.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">{d.probabilidad ?? 0}%</td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">{d.dias_en_etapa}d</td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">{d.actividades_count}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-navy">{fmt(d.valor)}</td>
+                      <td className="px-4 py-2.5 text-gray-600">{d.vendedor?.nombre ?? "Sin asignar"}</td>
+                    </tr>
+                  );
+                })}
+                {activos.length === 0 && (
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">Sin deals activos con estos filtros.</td></tr>
+                )}
+              </tbody>
+              {activos.length > 0 && (
+                <tfoot>
+                  <tr className="border-t border-surface-border bg-gray-50 font-bold text-navy">
+                    <td className="px-4 py-3" colSpan={7}>Total ({activos.length} deals)</td>
+                    <td className="px-4 py-3 text-right">{fmt(activos.reduce((s, d) => s + d.valor, 0))}</td>
+                    <td className="px-4 py-3" />
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      )}
 
       {modalOpen && canWrite && (
         <NuevoDealModal

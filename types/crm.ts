@@ -25,6 +25,8 @@ export interface DealResumen {
   stage_id: string;
   /** Días que lleva el deal en su etapa actual */
   dias_en_etapa: number;
+  /** Nº de actividades registradas (para ordenar por engagement) */
+  actividades_count: number;
   cliente: { id: string; nombre: string } | null;
   vendedor: { id: string; nombre: string } | null;
   tipo: { id: string; nombre: string } | null;
@@ -43,6 +45,15 @@ export const TEMPERATURA_META: Record<
 };
 
 export const TEMPERATURAS_CALIENTES: Temperatura[] = ["CALIENTE", "MUY_CALIENTE"];
+
+// Rango numérico de temperatura (para ordenar: calientes arriba)
+export const TEMPERATURA_RANK: Record<Temperatura, number> = {
+  MUY_CALIENTE: 5,
+  CALIENTE: 4,
+  TIBIO: 3,
+  FRIO: 2,
+  MUY_FRIO: 1,
+};
 
 // ── Detalle del deal ──
 
