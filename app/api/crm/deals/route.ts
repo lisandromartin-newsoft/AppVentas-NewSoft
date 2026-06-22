@@ -34,9 +34,16 @@ export async function POST(req: NextRequest) {
     ? (body.temperatura as Temperatura)
     : "TIBIO";
 
+  // Contacto obligatorio: un deal nace con al menos un contacto.
+  const ROLES = ["DECISOR", "INFLUENCIADOR", "USUARIO", "OTRO"];
+  const c = (body.contacto ?? {}) as Record<string, unknown>;
+  const contactoNombre = typeof c.nombre === "string" ? c.nombre.trim() : "";
+  const contactoRol = ROLES.includes(c.rol as string) ? (c.rol as string) : "OTRO";
+
   if (!nombre) return NextResponse.json({ error: "El nombre es obligatorio", campo: "nombre" }, { status: 422 });
   if (!cliente_id) return NextResponse.json({ error: "El cliente es obligatorio", campo: "cliente_id" }, { status: 422 });
   if (!stage_id) return NextResponse.json({ error: "La etapa es obligatoria", campo: "stage_id" }, { status: 422 });
+  if (!contactoNombre) return NextResponse.json({ error: "El nombre del contacto es obligatorio", campo: "contacto.nombre" }, { status: 422 });
 
   try {
     // Validar FKs (cliente activo, stage activo)
@@ -69,6 +76,17 @@ export async function POST(req: NextRequest) {
         canal: typeof body.canal === "string" && body.canal.trim() ? body.canal.trim() : null,
         origen: typeof body.origen === "string" && body.origen.trim() ? body.origen.trim() : null,
         fecha_cierre_estimada: fechaCierre,
+        // Contacto principal (obligatorio) creado junto con el deal
+        contactos: {
+          create: [{
+            nombre: contactoNombre,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            rol: contactoRol as any,
+            email: typeof c.email === "string" && c.email.trim() ? c.email.trim() : null,
+            telefono: typeof c.telefono === "string" && c.telefono.trim() ? c.telefono.trim() : null,
+            whatsapp: typeof c.whatsapp === "string" && c.whatsapp.trim() ? c.whatsapp.trim() : null,
+          }],
+        },
       },
       include: {
         cliente: { select: { id: true, nombre: true } },

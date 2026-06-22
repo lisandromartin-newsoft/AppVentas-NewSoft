@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
-import { TEMPERATURA_META, type DealResumen, type StageResumen, type Temperatura } from "@/types/crm";
+import { TEMPERATURA_META, ROL_CONTACTO_LABEL, type DealResumen, type StageResumen, type Temperatura, type RolContacto } from "@/types/crm";
 
 interface Props {
   stages: StageResumen[];
@@ -29,6 +29,11 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
     canal: "",
     origen: "",
     fecha_cierre_estimada: "",
+    contacto_nombre: "",
+    contacto_rol: "DECISOR" as RolContacto,
+    contacto_email: "",
+    contacto_telefono: "",
+    contacto_whatsapp: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -40,13 +45,27 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
       setError("Nombre, cliente y etapa son obligatorios.");
       return;
     }
+    if (!form.contacto_nombre.trim()) {
+      setError("El contacto es obligatorio: un deal debe tener al menos un contacto.");
+      return;
+    }
     setGuardando(true);
     setError(null);
     try {
+      const { contacto_nombre, contacto_rol, contacto_email, contacto_telefono, contacto_whatsapp, ...deal } = form;
       const res = await fetch("/api/crm/deals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...deal,
+          contacto: {
+            nombre: contacto_nombre,
+            rol: contacto_rol,
+            email: contacto_email,
+            telefono: contacto_telefono,
+            whatsapp: contacto_whatsapp,
+          },
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Error");
@@ -109,6 +128,32 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
         <Campo label="Cierre estimado">
           <input type="date" className={inputCls} value={form.fecha_cierre_estimada} onChange={(e) => set("fecha_cierre_estimada", e.target.value)} />
         </Campo>
+      </div>
+
+      {/* Contacto principal (obligatorio) */}
+      <div className="mt-5 border-t border-surface-border pt-4">
+        <div className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">Contacto principal *</div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo label="Nombre del contacto *">
+            <input className={inputCls} value={form.contacto_nombre} onChange={(e) => set("contacto_nombre", e.target.value)} placeholder="Ej. Irvin Álvarez" />
+          </Campo>
+          <Campo label="Rol">
+            <select className={inputCls} value={form.contacto_rol} onChange={(e) => set("contacto_rol", e.target.value as RolContacto)}>
+              {(["DECISOR", "INFLUENCIADOR", "USUARIO", "OTRO"] as RolContacto[]).map((r) => (
+                <option key={r} value={r}>{ROL_CONTACTO_LABEL[r]}</option>
+              ))}
+            </select>
+          </Campo>
+          <Campo label="Email">
+            <input type="email" className={inputCls} value={form.contacto_email} onChange={(e) => set("contacto_email", e.target.value)} placeholder="Opcional" />
+          </Campo>
+          <Campo label="Teléfono">
+            <input className={inputCls} value={form.contacto_telefono} onChange={(e) => set("contacto_telefono", e.target.value)} placeholder="Opcional" />
+          </Campo>
+          <Campo label="WhatsApp">
+            <input className={inputCls} value={form.contacto_whatsapp} onChange={(e) => set("contacto_whatsapp", e.target.value)} placeholder="Opcional" />
+          </Campo>
+        </div>
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
