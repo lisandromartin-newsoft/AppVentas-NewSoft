@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Filter, Building2, Clock, LayoutGrid, List, ArrowDownUp } from "lucide-react";
+import { Plus, Filter, Building2, Clock, LayoutGrid, List, ArrowDownUp, PauseCircle, Flame } from "lucide-react";
 import {
   TEMPERATURA_META,
   TEMPERATURAS_CALIENTES,
@@ -178,7 +178,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
         <Kpi label="Valor del pipeline" value={`${fmt(valorTotal)} MXN`} big />
         <div className="h-9 w-px bg-borde" />
         <Kpi label="Deals activos" value={String(activos.length)} />
-        <Kpi label="🔥 Calientes" value={String(calientes)} />
+        <Kpi label={<span className="inline-flex items-center gap-1"><Flame size={11} className="text-orange" /> Calientes</span>} value={String(calientes)} />
         <Kpi label="Promedio deal" value={fmt(promedio)} />
         <div className="ml-auto flex items-center gap-2">
           <ArrowDownUp size={14} className="text-gray-400" />
@@ -266,7 +266,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
             <div className="flex w-60 shrink-0 flex-col">
               <div className="rounded-t-xl border border-b-0 border-surface-border bg-white px-3.5 py-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-navy">⏸ Pausados</span>
+                  <span className="flex items-center gap-1 text-xs font-bold text-navy"><PauseCircle size={13} className="text-[#2A5298]" /> Pausados</span>
                   <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-gray-400">{pausados.length}</span>
                 </div>
                 <div className="mt-1.5 h-[3px] rounded-full" style={{ background: "#2A5298", opacity: 0.7 }} />
@@ -367,7 +367,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
   );
 }
 
-function Kpi({ label, value, big }: { label: string; value: string; big?: boolean }) {
+function Kpi({ label, value, big }: { label: React.ReactNode; value: string; big?: boolean }) {
   return (
     <div>
       <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>

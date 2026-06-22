@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MessageCircle, StickyNote,
-  Building2, Trophy, Cog, ChevronDown,
+  Building2, Trophy, Cog, ChevronDown, XCircle, PauseCircle, Play,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 
@@ -171,13 +171,13 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
               <Trophy size={15} /> {procesando ? "Procesando…" : "Cambiar estado"} <ChevronDown size={14} />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-lg border border-surface-border bg-white py-1 shadow-lg">
-                <button onClick={() => cambiarResultado("GANADO")} className="block w-full px-3 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50">🏆 Ganado</button>
-                <button onClick={() => { setMenuOpen(false); setRazon(""); setComentarioP(""); setModalPerdida(true); }} className="block w-full px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50">✕ Perdido</button>
+              <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-lg border border-surface-border bg-white py-1 shadow-lg">
+                <button onClick={() => cambiarResultado("GANADO")} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-emerald-700 hover:bg-emerald-50"><Trophy size={15} /> Ganado</button>
+                <button onClick={() => { setMenuOpen(false); setRazon(""); setComentarioP(""); setModalPerdida(true); }} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-red-700 hover:bg-red-50"><XCircle size={15} /> Perdido</button>
                 {deal.resultado === "ABIERTO" ? (
-                  <button onClick={() => cambiarResultado("SUSPENDIDO")} className="block w-full px-3 py-2 text-left text-sm text-blue-700 hover:bg-blue-50">⏸ Suspender (hold)</button>
+                  <button onClick={() => cambiarResultado("SUSPENDIDO")} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-blue-700 hover:bg-blue-50"><PauseCircle size={15} /> Suspender (hold)</button>
                 ) : (
-                  <button onClick={() => cambiarResultado("ABIERTO")} className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">▶ Reactivar</button>
+                  <button onClick={() => cambiarResultado("ABIERTO")} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"><Play size={15} /> Reactivar</button>
                 )}
               </div>
             )}
@@ -279,28 +279,28 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
         <section className="flex flex-col overflow-hidden bg-surface">
           {/* Compositor: arriba el TIPO de entrada → cambian los campos */}
           {canWrite && (
-            <div className="border-b border-surface-border bg-white px-5 py-3">
-              <div className="mb-2.5 flex items-center gap-1.5">
+            <div className="border-b border-surface-border bg-white px-5 py-4">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
                 {TIPO_PILLS.map(({ tipo, label, icon: Icon }) => (
                   <button
                     key={tipo}
                     onClick={() => setTipoNueva(tipo)}
-                    className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                       tipoNueva === tipo ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
                     }`}
                   >
-                    <Icon size={12} /> {label}
+                    <Icon size={13} /> {label}
                   </button>
                 ))}
               </div>
 
               {/* Campos según el tipo */}
               {tipoNueva !== "NOTA" && (
-                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <select
                     value={contactoSel}
                     onChange={(e) => setContactoSel(e.target.value)}
-                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none"
+                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
                   >
                     <option value="">{tipoNueva === "EMAIL" ? "¿A quién?" : "¿Con quién?"} (contacto)</option>
                     {deal.contactos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
@@ -310,12 +310,12 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
                       type="datetime-local"
                       value={fechaEvento}
                       onChange={(e) => setFechaEvento(e.target.value)}
-                      className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none"
+                      className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
                     />
                   )}
                   {tipoNueva === "LLAMADA" && (
-                    <label className="flex items-center gap-2 text-sm text-gray-600">
-                      <input type="checkbox" checked={exitosa} onChange={(e) => setExitosa(e.target.checked)} /> ¿Contestó / fue exitosa?
+                    <label className="flex items-center gap-2 text-sm text-gray-600 sm:col-span-2">
+                      <input type="checkbox" checked={exitosa} onChange={(e) => setExitosa(e.target.checked)} className="h-4 w-4" /> ¿Contestó / fue exitosa?
                     </label>
                   )}
                 </div>
@@ -325,14 +325,14 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 placeholder={PLACEHOLDER[tipoNueva]}
-                rows={2}
-                className="w-full resize-none rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-navy outline-none focus:border-orange focus:bg-white"
+                rows={3}
+                className="w-full resize-none rounded-lg border border-surface-border bg-surface px-3.5 py-2.5 text-sm text-navy outline-none focus:border-orange focus:bg-white"
               />
-              <div className="mt-2 flex justify-end">
+              <div className="mt-3 flex justify-end">
                 <button
                   onClick={guardarActividad}
                   disabled={!texto.trim() || guardando}
-                  className="rounded-lg bg-navy px-3.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-700 disabled:opacity-50"
                 >
                   {guardando ? "Guardando…" : "Registrar"}
                 </button>
@@ -341,20 +341,20 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
           )}
 
           {/* Filtros (ver bitácora por tipo) */}
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-surface-border bg-gray-50 px-5 py-2">
+          <div className="flex flex-wrap items-center gap-2 border-b border-surface-border bg-gray-50 px-5 py-2.5">
             <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ver:</span>
             {FILTROS_VER.map((f) => (
               <button
                 key={f.key}
                 onClick={() => setFiltroVer(f.key)}
-                className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
                   filtroVer === f.key ? "bg-navy text-white" : "text-gray-500 hover:bg-gray-200"
                 }`}
               >
                 {f.label}
               </button>
             ))}
-            <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-gray-300" title="Próximamente (adjuntos)">Archivos</span>
+            <span className="rounded-full px-3 py-1 text-[11px] font-semibold text-gray-300" title="Próximamente (adjuntos)">Archivos</span>
           </div>
 
           {/* Timeline */}
