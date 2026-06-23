@@ -5,7 +5,7 @@ Sistema interno de gestión de ventas y cotizaciones para Newsoft Technologies.
 ## Stack
 
 - **Next.js 16** (App Router) + **TypeScript** + **Tailwind CSS**
-- **Prisma ORM** + **PostgreSQL** (Supabase en producción)
+- **Prisma ORM** + **PostgreSQL** (AWS Lightsail en producción, Neon en staging)
 - **Autenticación propia por cookie/JWT** (firmada con `jose`) — ver `lib/session.ts` y `lib/access-control.ts`
 - **recharts** (gráficas) · **@react-pdf/renderer** + **puppeteer-core** (generación de PDF)
 - **Jest** (pruebas) · **Docker** + **Terraform** (despliegue alternativo en AWS Lightsail)
@@ -74,28 +74,54 @@ npm run user:role    # Asignar rol a un usuario (scripts/set-user-role.ts)
 
 ---
 
-## Despliegue
+## Ambientes
 
-La producción corre en **Vercel** (`app-ventas-new-soft.vercel.app`).
+| Ambiente | Dónde | Base de datos | Cómo se actualiza |
+|---|---|---|---|
+| **Local** | `localhost:3001` (Docker) | PostgreSQL en Docker (`localhost:5433`) | `npm run dev` |
+| **Staging / demo** | `app-ventas-new-soft.vercel.app` | Neon (free tier) | Automático en cada push / PR |
+| **Producción** | AWS Lightsail (`13.218.0.179`) | Lightsail Managed PostgreSQL | Manual: `terraform apply` |
 
-- **Cada push a `main` despliega a producción automáticamente** y ejecuta
-  `prisma generate && next build` (ver `vercel.json`). Las migraciones se aplican
-  contra la base de datos real.
-- Cada rama / Pull Request genera un **preview deployment** propio para probar antes de mergear.
-- Variables de entorno: configuradas en **Vercel → Project → Settings → Environment Variables**
-  (`POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `SESSION_SECRET`).
+> ⚠️ Mergear a `main` **NO despliega automáticamente** a producción. El deploy a Lightsail
+> es siempre manual desde `infra/lightsail/` con Terraform.
 
-### Alternativa: AWS Lightsail (preparada, no en uso)
+## Despliegue a producción (Lightsail)
 
-El directorio `infra/lightsail/` contiene un stack de Terraform que levanta una VM con
-PostgreSQL administrado y despliega vía Docker Compose. Ver `infra/lightsail/README.md`.
+```bash
+# 1. Asegurarse de estar en main y sin cambios pendientes
+git checkout main && git pull
+
+# 2. Plan (ver qué cambia sin aplicar)
+C:\Users\Usuario\bin\terraform.exe -chdir=infra/lightsail plan -out=tfplan
+
+# 3. Aplicar (empaqueta repo → SSH → Docker build → prisma migrate deploy)
+C:\Users\Usuario\bin\terraform.exe -chdir=infra/lightsail apply tfplan
+
+# 4. Verificar
+ssh -i ~/.ssh/newsoft_lightsail ubuntu@13.218.0.179 "sudo -n docker ps && sudo -n docker logs --tail=20 newsoft-sales-app"
+```
+
+Requiere: credenciales AWS en `~/.aws/credentials`, `terraform.tfvars` y `terraform.tfstate`
+en `infra/lightsail/` (gitignored — ver `C:\Users\Usuario\newsoft-handoff\`).
+
+## Despliegue a staging (Vercel)
+
+Automático: cada push a cualquier rama genera una URL de preview.
+Para promover a la URL principal (`app-ventas-new-soft.vercel.app`):
+
+```bash
+vercel deploy --prod
+```
+
+Variables de entorno en **Vercel → Project → Settings → Environment Variables**:
+`POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `SESSION_SECRET`.
 
 ---
 
 ## Flujo de trabajo
 
 `main` está **protegido**: no se hace push directo. Todo cambio entra por Pull Request
-desde una rama `feature/`, `fix/` o `chore/`. Ver **[docs/FLUJO-GIT.md](docs/FLUJO-GIT.md)**.
+desde una rama `feature/`, `fix/` o `chore/`.
 
 ---
 
