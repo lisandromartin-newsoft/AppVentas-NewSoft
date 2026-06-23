@@ -5,10 +5,10 @@ Sistema interno de gestión de ventas y cotizaciones para Newsoft Technologies.
 ## Stack
 
 - **Next.js 16** (App Router) + **TypeScript** + **Tailwind CSS**
-- **Prisma ORM** + **PostgreSQL** (Supabase en producción)
+- **Prisma ORM** + **PostgreSQL** (Docker en local; gestionado en staging/producción)
 - **Autenticación propia por cookie/JWT** (firmada con `jose`) — ver `lib/session.ts` y `lib/access-control.ts`
 - **recharts** (gráficas) · **@react-pdf/renderer** + **puppeteer-core** (generación de PDF)
-- **Jest** (pruebas) · **Docker** + **Terraform** (despliegue alternativo en AWS Lightsail)
+- **Jest** (pruebas) · **Docker** + **Terraform** (despliegue en producción: AWS Lightsail)
 
 ---
 
@@ -76,19 +76,30 @@ npm run user:role    # Asignar rol a un usuario (scripts/set-user-role.ts)
 
 ## Despliegue
 
-La producción corre en **Vercel** (`app-ventas-new-soft.vercel.app`).
+El sistema usa tres entornos:
 
-- **Cada push a `main` despliega a producción automáticamente** y ejecuta
-  `prisma generate && next build` (ver `vercel.json`). Las migraciones se aplican
-  contra la base de datos real.
-- Cada rama / Pull Request genera un **preview deployment** propio para probar antes de mergear.
-- Variables de entorno: configuradas en **Vercel → Project → Settings → Environment Variables**
-  (`POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `SESSION_SECRET`).
+| Entorno | Dónde | Base de datos | Para qué |
+|---|---|---|---|
+| **Local** | Tu máquina | PostgreSQL en Docker | Desarrollo |
+| **Staging** | Vercel | PostgreSQL de staging (separada) | Pruebas / demos al cliente |
+| **Producción** | AWS Lightsail | PostgreSQL gestionado de Lightsail | Clientes reales |
 
-### Alternativa: AWS Lightsail (preparada, no en uso)
+### Producción — AWS Lightsail
 
-El directorio `infra/lightsail/` contiene un stack de Terraform que levanta una VM con
-PostgreSQL administrado y despliega vía Docker Compose. Ver `infra/lightsail/README.md`.
+La app que usan los clientes corre en **AWS Lightsail** (Docker + PostgreSQL gestionado).
+El despliegue se hace con **Terraform** desde `infra/lightsail`: empaqueta el código, lo sube
+por SSH, construye la imagen Docker, aplica migraciones (`prisma migrate deploy`) y levanta el
+contenedor. Ver `infra/lightsail/README.md` y **[docs/operaciones/](docs/operaciones/)**.
+
+> ⚠️ No hay CI/CD automático: el despliegue se ejecuta manualmente con `terraform apply`.
+> Mergear a `main` **no** despliega a producción por sí solo.
+
+### Staging — Vercel
+
+Vercel está conectado al repo y genera **preview deployments** por rama/PR, útiles para mostrar
+avances sin tocar producción. Usa una base de datos de **staging** (nunca la de clientes).
+Variables en **Vercel → Project → Settings → Environment Variables**
+(`POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `SESSION_SECRET`).
 
 ---
 
