@@ -29,6 +29,7 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 
 # Terraform local/state/secrets
 **/.terraform/
@@ -56,3 +57,13 @@ next-env.d.ts
 # Editor
 .vscode/
 .idea/
+
+# Llaves / secretos (NUNCA commitear)
+**/newsoft_lightsail
+**/newsoft_lightsail.pub
+*.ppk
+id_rsa
+id_ed25519
+
+# Config local de Claude Code
+.claude/
