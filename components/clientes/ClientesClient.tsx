@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef } from "react";
 import { Plus, Users, Search, AlertTriangle, Download, Upload } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import ClienteCard from "./ClienteCard";
@@ -27,10 +27,15 @@ export default function ClientesClient({
   canWrite = true,
 }: ClientesClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [clientes, setClientes] = useState<ClienteConStats[]>(initialClientes);
   const [search, setSearch] = useState("");
-  const [estatusFiltro, setEstatusFiltro] = useState<"todos" | "PROSPECTO" | "ACTIVO">("todos");
+  // Filtro inicial respetando el deep-link ?estatus= (ej. "Convertir a Cliente" desde un deal)
+  const estatusParam = searchParams.get("estatus");
+  const [estatusFiltro, setEstatusFiltro] = useState<"todos" | "PROSPECTO" | "ACTIVO">(
+    estatusParam === "PROSPECTO" || estatusParam === "ACTIVO" ? estatusParam : "todos"
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<ClienteConStats | null>(null);
   const [confirmDesactivar, setConfirmDesactivar] = useState<ClienteConStats | null>(null);
