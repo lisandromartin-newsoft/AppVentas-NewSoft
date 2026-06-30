@@ -26,6 +26,9 @@ export async function PATCH(
   if (typeof notas !== "string") {
     return NextResponse.json({ error: "notas (string) requerido" }, { status: 422 });
   }
+  if (notas.length > 2000) {
+    return NextResponse.json({ error: "La descripción es demasiado larga (máx. 2000)" }, { status: 422 });
+  }
 
   try {
     await prisma.deal.update({ where: { id }, data: { notas: notas.trim() || null } });

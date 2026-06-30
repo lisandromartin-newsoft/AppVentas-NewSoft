@@ -48,6 +48,9 @@ export async function POST(req: NextRequest) {
   const prospectoNombre = cn && typeof cn.nombre === "string" ? cn.nombre.trim() : "";
 
   if (!nombre) return NextResponse.json({ error: "El nombre es obligatorio", campo: "nombre" }, { status: 422 });
+  if (nombre.length > 200 || prospectoNombre.length > 200 || contactoNombre.length > 150) {
+    return NextResponse.json({ error: "Texto demasiado largo", campo: "nombre" }, { status: 422 });
+  }
   if (!cliente_id && !prospectoNombre) {
     return NextResponse.json(
       { error: "Indica un cliente existente o un prospecto nuevo", campo: "cliente_id" },

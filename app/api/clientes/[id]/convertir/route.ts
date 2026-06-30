@@ -32,8 +32,12 @@ export async function POST(
   }
 
   try {
-    const actual = await prisma.cliente.findUnique({ where: { id }, select: { id: true, rfc: true } });
+    const actual = await prisma.cliente.findUnique({ where: { id }, select: { id: true, rfc: true, estatus: true } });
     if (!actual) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
+    // Solo se convierten prospectos: evita reactivar inactivos o re-mutar clientes ya activos por esta vía.
+    if (actual.estatus !== "PROSPECTO") {
+      return NextResponse.json({ error: "Solo se puede convertir un prospecto" }, { status: 422 });
+    }
 
     // RFC único (si cambió)
     if (parsed.data.rfc && parsed.data.rfc !== actual.rfc) {
