@@ -59,9 +59,11 @@ export default async function PipelinePage() {
     }),
   ]);
 
-  // Última actividad por deal (para medir inactividad cuando no hay seguimiento futuro)
+  // Última actividad por deal — acotada a los deals cargados (no escanea todo el histórico)
+  const dealIds = deals.map((d) => d.id);
   const ultimas = await prisma.dealActividad.groupBy({
     by: ["deal_id"],
+    where: { deal_id: { in: dealIds } },
     _max: { created_at: true },
   });
   const ultimaPorDeal = new Map(ultimas.map((u) => [u.deal_id, u._max.created_at]));

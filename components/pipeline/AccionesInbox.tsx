@@ -9,6 +9,7 @@ import {
   TEMPERATURA_META, ESTADO_ACCION_META, ESTADO_ACCION_CICLO, GRUPO_URGENCIA_META,
   type AccionItem, type TipoActividad, type EstadoAccion, type GrupoUrgencia,
 } from "@/types/crm";
+import { formatCompacto, formatFechaHora } from "@/lib/utils";
 
 const TIPO_ICON: Record<TipoActividad, typeof Phone> = {
   NOTA: StickyNote,
@@ -19,18 +20,6 @@ const TIPO_ICON: Record<TipoActividad, typeof Phone> = {
 };
 
 const ORDEN_GRUPOS: GrupoUrgencia[] = ["VENCIDAS", "HOY", "SEMANA", "DESPUES"];
-
-function fmtDinero(n: number): string {
-  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return "$" + Math.round(n / 1_000) + "K";
-  return "$" + n.toLocaleString("es-MX");
-}
-
-function fmtFechaHora(iso: string): string {
-  return new Date(iso).toLocaleString("es-MX", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-  });
-}
 
 // datetime-local espera "YYYY-MM-DDTHH:mm" en hora local
 function toLocalInput(iso: string): string {
@@ -240,7 +229,7 @@ export default function AccionesInbox({
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
                           <span className="h-1.5 w-1.5 rounded-full" style={{ background: temp.color }} />
                           <span className="rounded bg-surface px-1.5 py-0.5">{a.deal.nombre}</span>
-                          <span className="font-bold text-navy">{fmtDinero(a.deal.valor)}</span>
+                          <span className="font-bold text-navy">{formatCompacto(a.deal.valor)}</span>
                           {a.contacto_nombre && <span className="text-gray-400">· {a.contacto_nombre}</span>}
                           {a.deal.vendedor && <span className="text-gray-400">· {a.deal.vendedor.nombre}</span>}
                         </div>
@@ -248,7 +237,7 @@ export default function AccionesInbox({
                       <div className="flex shrink-0 flex-col items-end gap-1.5">
                         <span className="flex items-center gap-1 text-[11px] font-semibold text-gray-500">
                           <Icon size={12} className="text-gray-400" />
-                          {a.fecha_tarea ? fmtFechaHora(a.fecha_tarea) : "Sin fecha"}
+                          {a.fecha_tarea ? formatFechaHora(a.fecha_tarea) : "Sin fecha"}
                         </span>
                         {reprogramando === a.id ? (
                           <input
